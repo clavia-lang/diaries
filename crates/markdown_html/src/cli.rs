@@ -3,8 +3,9 @@ use std::path::PathBuf;
 
 #[derive(Parser)]
 pub struct Args {
-    pub input_dir: PathBuf,
-    pub output_dir: PathBuf,
+    pub dir: Option<PathBuf>,
+    #[clap(long)]
+    pub dest_dir: Option<PathBuf>,
     #[command(subcommand)]
     pub command: Command,
 }

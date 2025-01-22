@@ -1,0 +1,5 @@
+[diary]
+src = "src"
+
+[build]
+build-dir = "diary"
