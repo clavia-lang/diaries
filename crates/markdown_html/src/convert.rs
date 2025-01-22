@@ -21,7 +21,13 @@ pub fn markdown_to_html(input_path: &Path, output_path: &Path) -> io::Result<Str
     }
     let mut context = Context::new();
     context.insert("content", &html_buf);
-    let output = TEMPLATES.render("base.html", &context).unwrap();
+    let output = match TEMPLATES.render("base.html", &context) {
+        Ok(output) => output,
+        Err(error) => {
+            eprintln!("failed to rendering template: {}", error);
+            return Err(io::Error::new(io::ErrorKind::Other, "could not rendering template"))
+        }
+    };
     fs::write(output_path, &output)?;
     Ok(output)
 }
