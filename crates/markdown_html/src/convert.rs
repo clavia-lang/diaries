@@ -13,7 +13,7 @@ pub fn markdown_to_html(input_path: &Path, output_path: &Path) -> io::Result<Str
     options.insert(Options::ENABLE_TASKLISTS);
     options.insert(Options::ENABLE_FOOTNOTES);
     options.insert(Options::ENABLE_YAML_STYLE_METADATA_BLOCKS);
-    let parser = pulldown_cmark::Parser::new(&markdown_input);
+    let parser = pulldown_cmark::Parser::new_ext(&markdown_input, options);
     let mut html_buf = String::new();
     pulldown_cmark::html::push_html(&mut html_buf, parser);
     if let Some(parent) = output_path.parent() {
