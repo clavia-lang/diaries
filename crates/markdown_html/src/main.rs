@@ -18,15 +18,17 @@ where
     F: Fn(&DirEntry) -> Result<(), E>,
     E: Into<io::Error>,
 {
-    if dir.is_dir() {
-        for entry in fs::read_dir(dir)? {
-            let entry = entry?;
-            let path = entry.path();
-            if path.is_dir() {
-                visit_dirs(&path, cb)?;
-            } else {
-                cb(&entry).map_err(Into::into)?;
-            }
+    if !dir.is_dir() {
+        return Err(io::Error::new(io::ErrorKind::InvalidInput,
+            format!("directory expected, got file {}", dir.display())));
+    }
+    for entry in fs::read_dir(dir)? {
+        let entry = entry?;
+        let path = entry.path();
+        if path.is_dir() {
+            visit_dirs(&path, cb)?;
+        } else {
+            cb(&entry).map_err(Into::into)?;
         }
     }
     Ok(())
