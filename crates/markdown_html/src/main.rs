@@ -75,6 +75,6 @@ async fn main() {
 
     match args.command {
         Command::Build => build(&dirs).unwrap(),
-        Command::Serve => serve(&dirs).await.unwrap(),
+        Command::Serve => serve(dirs).await.unwrap(),
     }
 }

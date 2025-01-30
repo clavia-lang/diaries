@@ -11,14 +11,14 @@ use tokio::net::TcpListener;
 use markdown_html::config::Dirs;
 use markdown_html::convert::markdown_to_html;
 
-async fn service(request: Request<body::Incoming>, input_dir: &Path, output_dir: &Path) -> Result<Response<Full<Bytes>>, Error> {
+async fn service(request: Request<body::Incoming>, dirs: &Dirs) -> Result<Response<Full<Bytes>>, Error> {
     match (request.method(), request.uri().path()) {
         (&Method::GET, "/") => {
             unimplemented!("list files and directories")
         }
         (&Method::GET, path) => {
             let path = Path::new(path).strip_prefix("/").unwrap();
-            let mut input_path = input_dir.join(path);
+            let mut input_path = dirs.src.join(path);
             input_path.set_extension("md");
 
             if !input_path.exists() {
@@ -26,7 +26,7 @@ async fn service(request: Request<body::Incoming>, input_dir: &Path, output_dir:
                 return builder.body(Full::<Bytes>::from("Page not found"));
             }
 
-            let mut output_path = output_dir.join(path);
+            let mut output_path = dirs.build_dir.join(path);
             output_path.set_extension("html");
 
             let output = match markdown_to_html(&input_path, &output_path) {
@@ -47,18 +47,18 @@ async fn service(request: Request<body::Incoming>, input_dir: &Path, output_dir:
     }
 }
 
-pub async fn serve(dirs: &Dirs) -> Result<(), Box<dyn std::error::Error + Sync + Send>> {
+pub async fn serve(dirs: Dirs) -> Result<(), Box<dyn std::error::Error + Sync + Send>> {
     let listener = TcpListener::bind("127.0.0.1:2345").await?;
+    let dirs = Arc::new(dirs);
 
     loop {
         let (stream, _) = listener.accept().await?;
-        let dir_clone = Arc::new(dirs.src.to_path_buf());
-        let dest_dir_clone = Arc::new(dirs.build_dir.to_path_buf());
+        let dirs_clone = dirs.clone();
 
         tokio::spawn(async move {
             let io = TokioIo::new(stream);
             let http = Builder::new();
-            let conn = http.serve_connection(io, service_fn(|request| service(request, &dir_clone, &dest_dir_clone)));
+            let conn = http.serve_connection(io, service_fn(|request| service(request, &dirs_clone)));
             if let Err(error) = conn.await {
                 eprintln!("failed to serve connection: {}", error);
             }
