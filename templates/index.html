@@ -1,0 +1,8 @@
+{% extends "base.html" %}
+{% block content %}
+    <ul>
+        {% for diary in diaries %}
+            <ul><a href="{{ diary.permalink }}">{{ diary.permalink }}</a></ul>
+        {% endfor %}
+    </ul>
+{% endblock content %}

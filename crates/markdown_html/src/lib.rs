@@ -1,4 +1,4 @@
-pub mod convert;
+pub mod template;
 pub mod config;
 
 use lazy_static::lazy_static;

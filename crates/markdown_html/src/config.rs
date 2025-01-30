@@ -19,6 +19,7 @@ pub struct Build {
 }
 
 // Runtime type for avoiding excessive use of unwraps
+#[derive(Clone)]
 pub struct Dirs {
     pub src: PathBuf,
     pub build_dir: PathBuf,

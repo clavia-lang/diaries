@@ -9,36 +9,67 @@ use std::sync::Arc;
 use std::path::Path;
 use tokio::net::TcpListener;
 use markdown_html::config::Dirs;
-use markdown_html::convert::markdown_to_html;
+use markdown_html::template::{render_diary, render_index};
 
-async fn service(request: Request<body::Incoming>, dirs: &Dirs) -> Result<Response<Full<Bytes>>, Error> {
-    match (request.method(), request.uri().path()) {
-        (&Method::GET, "/") => {
-            unimplemented!("list files and directories")
+type RequestResult = Result<Response<Full<Bytes>>, Error>;
+
+fn handle_page(input_path: &Path, output_path: &Path) -> RequestResult {
+    let output = match render_diary(input_path, output_path) {
+        Ok(output) => output,
+        Err(error) => {
+            eprintln!("Error rendering page: {}", error);
+            let builder = Response::builder().status(StatusCode::INTERNAL_SERVER_ERROR);
+            return builder.body(Full::<Bytes>::from("Error rendering page"));
+        },
+    };
+    Ok(Response::new(Full::<Bytes>::from(output)))
+}
+
+fn handle_index(input_path: &Path, output_path: &Path, dirs: &Dirs) -> RequestResult {
+    let output =  match render_index(input_path, output_path, dirs) {
+        Ok(output) => output,
+        Err(error) => {
+            eprintln!("Error rendering index: {}", error);
+            let builder = Response::builder().status(StatusCode::INTERNAL_SERVER_ERROR);
+            return builder.body(Full::<Bytes>::from("Error rendering index"));
         }
+    };
+    Ok(Response::new(Full::<Bytes>::from(output)))
+}
+
+
+async fn service(request: Request<body::Incoming>, dirs: &Dirs) -> RequestResult {
+    match (request.method(), request.uri().path()) {
         (&Method::GET, path) => {
             let path = Path::new(path).strip_prefix("/").unwrap();
-            let mut input_path = dirs.src.join(path);
-            input_path.set_extension("md");
 
-            if !input_path.exists() {
+            // We don't known whether it is a directory or a file yet            
+            let input_dir = dirs.src.join(path);
+            let input_path = input_dir.with_extension("md");
+
+            let input_dir_exists = input_dir.is_dir();
+            let input_path_exists = input_path.is_file();
+
+            if !input_path_exists && !input_dir_exists {
                 let builder = Response::builder().status(StatusCode::NOT_FOUND);
                 return builder.body(Full::<Bytes>::from("Page not found"));
             }
 
-            let mut output_path = dirs.build_dir.join(path);
-            output_path.set_extension("html");
+            if input_path_exists && input_dir_exists {
+                let builder = Response::builder().status(StatusCode::CONFLICT);
+                return builder.body(Full::<Bytes>::from("Both file and directory exists"))
+            }
 
-            let output = match markdown_to_html(&input_path, &output_path) {
-                Ok(output) => output,
-                Err(error) => {
-                    eprintln!("Error rendering Markdown: {}", error);
-                    let builder = Response::builder().status(StatusCode::INTERNAL_SERVER_ERROR);
-                    return builder.body(Full::<Bytes>::from("Error rendering Markdown"));
-                },
-            };
-            println!("{:?} {:?}", input_path, output_path);
-            Ok(Response::new(Full::<Bytes>::from(output)))
+            if input_path_exists {
+                let mut output_path = dirs.build_dir.join(path);
+                output_path.set_extension("html");
+                handle_page(&input_path, &output_path)
+            } else if input_dir_exists {
+                let output_path = dirs.build_dir.join(path).join("index.html");
+                handle_index(&input_dir, &output_path, dirs)
+            } else {
+                unreachable!("input_path_exists and input_dir_exists are both false, which should have been handled earlier")
+            }
         },
         _ => {
             let builder = Response::builder().status(StatusCode::METHOD_NOT_ALLOWED);
